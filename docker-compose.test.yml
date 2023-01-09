@@ -1,0 +1,44 @@
+version: '3.4'
+services:
+  netbox:
+    image: ${IMAGE-netboxcommunity/netbox:latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      redis-cache:
+        condition: service_started
+    env_file: env/netbox.env
+    user: 'unit:root'
+    volumes:
+    - ./configuration:/etc/netbox/config:z,ro
+    - ./test-configuration/logging.py:/etc/netbox/config/logging.py:z,ro
+    - ./reports:/etc/netbox/reports:z,ro
+    - ./scripts:/etc/netbox/scripts:z,ro
+    - netbox-media-files:/opt/netbox/netbox/media:z
+  postgres:
+    image: postgres:15-alpine
+    env_file: env/postgres.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    command:
+    - sh
+    - -c # this is to evaluate the $REDIS_PASSWORD from the env
+    - redis-server --appendonly yes --requirepass $$REDIS_PASSWORD ## $$ because of docker-compose
+    env_file: env/redis.env
+  redis-cache:
+    image: redis:7-alpine
+    command:
+    - sh
+    - -c # this is to evaluate the $REDIS_PASSWORD from the env
+    - redis-server --requirepass $$REDIS_PASSWORD ## $$ because of docker-compose
+    env_file: env/redis-cache.env
+volumes:
+  netbox-media-files:
+    driver: local
